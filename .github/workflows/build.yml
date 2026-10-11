@@ -1,0 +1,100 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.scheme }}
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scheme: rootless
+            theos: https://github.com/theos/theos.git
+          - scheme: roothide
+            theos: https://github.com/roothide/theos.git
+
+    env:
+      THEOS: ${{ github.workspace }}/../theos-${{ matrix.scheme }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache theos
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/theos-${{ matrix.scheme }}
+            ~/sdks
+          key: theos-${{ matrix.scheme }}-v1-${{ hashFiles('.github/workflows/build.yml') }}
+
+      - name: Setup toolchain
+        run: |
+          set -x
+          if [ ! -d "$THEOS/makefiles" ]; then
+            rm -rf "$THEOS"
+            git clone --recursive --depth 1 "${{ matrix.theos }}" "$THEOS"
+          fi
+
+          if [ ! -d "$HOME/sdks" ] || [ -z "$(ls -A "$HOME/sdks" 2>/dev/null)" ]; then
+            git clone --depth 1 https://github.com/theos/sdks.git "$HOME/sdks"
+          fi
+          mkdir -p "$THEOS/sdks"
+          cp -R "$HOME"/sdks/*.sdk "$THEOS/sdks/" 2>/dev/null || true
+          ls "$THEOS/sdks" || true
+
+          mkdir -p "$THEOS/bin"
+          if [ ! -x "$THEOS/bin/ldid" ]; then
+            if command -v ldid >/dev/null 2>&1; then
+              cp "$(command -v ldid)" "$THEOS/bin/ldid"
+            elif brew install ldid >/dev/null 2>&1 && command -v ldid >/dev/null 2>&1; then
+              cp "$(command -v ldid)" "$THEOS/bin/ldid"
+            fi
+          fi
+          if [ ! -x "$THEOS/bin/ldid" ]; then
+            for url in \
+              https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_macosx_arm64 \
+              https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_macosx_x86_64
+            do
+              if curl -fsSL "$url" -o "$THEOS/bin/ldid"; then break; fi
+            done
+            chmod +x "$THEOS/bin/ldid" 2>/dev/null || true
+          fi
+          "$THEOS/bin/ldid" -v 2>&1 | head -2 || echo "!! ldid unavailable"
+
+      - name: Verify
+        run: |
+          echo "THEOS=$THEOS"
+          ls "$THEOS/sdks"
+          echo "--- package schemes ---"
+          ls "$THEOS/makefiles/package/" 2>/dev/null || true
+          echo "--- ldid ---"
+          "$THEOS/bin/ldid" -v 2>&1 | head -2 || true
+
+      - name: Build
+        run: |
+          set -o pipefail
+          export PATH="$THEOS/bin:$PATH"
+          make clean 2>/dev/null || true
+          make -k package THEOS_PACKAGE_SCHEME=${{ matrix.scheme }} FINALPACKAGE=1 2>&1 | tee build.log
+          echo "--- packages ---"
+          ls -la packages/
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deb-${{ matrix.scheme }}
+          path: packages/*.deb
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: log-${{ matrix.scheme }}
+          path: build.log
+          if-no-files-found: ignore

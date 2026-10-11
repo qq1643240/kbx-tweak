@@ -1,0 +1,15 @@
+* text=auto eol=lf
+
+Makefile   text eol=lf
+*.mk       text eol=lf
+*.sh       text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf
+*.plist    text eol=lf
+*.xm       text eol=lf
+*.m        text eol=lf
+*.h        text eol=lf
+control    text eol=lf
+
+*.png binary
+*.deb binary

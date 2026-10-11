@@ -1,0 +1,10 @@
+{
+    entry = {
+        cell = PSLinkCell;
+        bundle = SuperXPrefs;
+        detail = SuperXRootListController;
+        icon = icon.png;
+        isController = 1;
+        label = "super X";
+    };
+}

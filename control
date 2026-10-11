@@ -1,0 +1,9 @@
+Package: com.dev.superx
+Name: super X
+Description: 键盘 AI 助手 —— 文本/图片一键调用大模型，灵动岛弹窗、分词选择、截图悬浮窗、剪贴板快捷操作。
+Maintainer: dev
+Author: dev
+Section: Tweaks
+Depends: mobilesubstrate (>= 0.9.5000), preferenceloader, firmware (>= 15.0)
+Architecture: iphoneos-arm64
+Version: 1.0.4
